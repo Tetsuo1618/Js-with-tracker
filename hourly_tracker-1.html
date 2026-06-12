@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <!-- The "head" is the setup area: settings, title, and styles live here -->
+  <meta charset="UTF-8" />
+  <!-- This viewport line makes the layout scale correctly on your phone screen -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Hourly Tracker</title>
+
+  <style>
+    /* ============================================================
+       CSS VARIABLES — define colors ONCE here, reuse everywhere.
+       Change --accent and the whole app re-themes itself.
+       ============================================================ */
+    :root {
+      --bg: #14110d;          /* near-black warm background */
+      --panel: #1f1a13;       /* card background, slightly lighter */
+      --border: #3a2f1e;      /* subtle warm border */
+      --text: #efe6d4;        /* warm off-white text */
+      --muted: #9c8e72;       /* dimmed text for labels/hints */
+      --accent: #f2a93b;      /* amber — buttons + highlights */
+      --danger: #d96c4f;      /* burnt orange for the clear button */
+    }
+
+    /* The * selector means "every element". box-sizing makes
+       padding count INSIDE width, which prevents layout surprises. */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: Georgia, 'Times New Roman', serif; /* characterful + always installed */
+      min-height: 100vh; /* fill at least the full screen height */
+      /* This radial gradient adds a soft amber glow at the top — pure atmosphere */
+      background-image: radial-gradient(ellipse at top, #241c10 0%, var(--bg) 60%);
+    }
+
+    /* The main column: never wider than 640px, centered, padded for thumbs */
+    .wrap {
+      max-width: 640px;
+      margin: 0 auto;
+      padding: 20px 16px 60px;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      letter-spacing: 0.08em;   /* spreads letters slightly — feels like a title plate */
+      text-transform: uppercase;
+      color: var(--accent);
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 12px;
+      margin-bottom: 16px;
+    }
+
+    /* ============================================================
+       TAB BAR — two buttons that switch which panel is visible
+       ============================================================ */
+    .tabs {
+      display: flex;            /* flex = lay children in a row */
+      gap: 8px;
+      margin-bottom: 20px;
+    }
+
+    .tab-btn {
+      flex: 1;                  /* each button takes equal width */
+      padding: 12px;
+      font-family: inherit;     /* buttons don't inherit fonts by default — force it */
+      font-size: 1rem;
+      background: var(--panel);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    /* The .active class marks the currently selected tab.
+       JS moves this class between the two buttons. */
+    .tab-btn.active {
+      background: var(--accent);
+      color: #1a1409;           /* dark text on amber = readable */
+      border-color: var(--accent);
+      font-weight: bold;
+    }
+
+    /* Any element with .hidden disappears. This is how tabs "switch". */
+    .hidden { display: none; }
+
+    /* ============================================================
+       FORM — the input card
+       ============================================================ */
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px;
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;           /* block = label sits on its own line */
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 4px;
+    }
+
+    input, textarea {
+      width: 100%;              /* stretch to fill the card */
+      padding: 12px;
+      margin-bottom: 14px;
+      font-family: inherit;
+      font-size: 1rem;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+
+    /* :focus fires when you tap into a field — amber outline shows where you are */
+    input:focus, textarea:focus {
+      outline: 2px solid var(--accent);
+      border-color: var(--accent);
+    }
+
+    /* Two time fields side-by-side using a 2-column grid */
+    .time-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr; /* two equal columns */
+      gap: 12px;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background: var(--accent);
+      color: #1a1409;
+    }
+
+    .btn:active { transform: scale(0.98); } /* tiny press-down feel on tap */
+
+    .btn-danger {
+      background: transparent;
+      color: var(--danger);
+      border: 1px solid var(--danger);
+      margin-top: 8px;
+    }
+
+    /* ============================================================
+       BLOCK LIST — saved entries render here
+       ============================================================ */
+    .block-item {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--accent); /* amber spine marks each block */
+      border-radius: 8px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between; /* text left, delete button right */
+      align-items: center;
+      gap: 10px;
+    }
+
+    .block-time {
+      color: var(--accent);
+      font-weight: bold;
+      font-size: 0.9rem;
+    }
+
+    .block-desc { margin-top: 4px; }
+
+    /* Small × button to remove a single block */
+    .del-btn {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--muted);
+      border-radius: 6px;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+
+    .empty-msg {
+      color: var(--muted);
+      text-align: center;
+      padding: 24px 0;
+      font-style: italic;
+    }
+
+    .date-label {
+      color: var(--muted);
+      font-size: 0.85rem;
+      margin-bottom: 12px;
+    }
+
+    /* ============================================================
+       LESSON SYSTEM STYLES
+       ============================================================ */
+
+    /* Header row: lesson title on the left, "1 / 3" counter on the right */
+    .lesson-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 12px;
+    }
+
+    .lesson-title { color: var(--accent); font-size: 1.15rem; }
+    .lesson-count { color: var(--muted); font-size: 0.85rem; }
+
+    /* The explanation text area — readable line spacing for learning */
+    .lesson-body { line-height: 1.6; margin-bottom: 16px; }
+    .lesson-body p { margin-bottom: 10px; }
+
+    /* Inline code words like let get a subtle highlight box */
+    .lesson-body code {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      color: var(--accent);
+      font-family: 'Courier New', monospace;
+    }
+
+    /* The code editor: monospace font so code aligns like real editors */
+    .code-editor {
+      font-family: 'Courier New', monospace;
+      font-size: 0.95rem;
+      min-height: 130px;
+      resize: vertical;        /* lets you drag it taller on desktop */
+      white-space: pre;        /* preserves indentation exactly */
+    }
+
+    /* The output panel where console.log results appear */
+    .output-panel {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      min-height: 60px;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9rem;
+      white-space: pre-wrap;   /* keeps line breaks, wraps long lines */
+      margin-top: 12px;
+    }
+
+    /* Error text shows in the danger color so mistakes stand out */
+    .output-error { color: var(--danger); }
+    .output-hint  { color: var(--muted); font-style: italic; }
+
+    /* Previous / Next navigation row */
+    .lesson-nav {
+      display: flex;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .lesson-nav .btn { flex: 1; }
+
+    /* A disabled button fades out and ignores taps */
+    .btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Hourly Tracker</h1>
+
+    <!-- ===== TAB BUTTONS =====
+         data-tab tells JS which panel each button controls.
+         "data-" attributes are custom labels you invent — HTML allows any. -->
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="tracker">Tracker</button>
+      <button class="tab-btn" data-tab="tutorial">JS Tutorial</button>
+    </div>
+
+    <!-- ===== PANEL 1: TRACKER ===== -->
+    <div id="panel-tracker">
+      <p class="date-label" id="dateLabel"></p> <!-- JS fills in today's date -->
+
+      <div class="card">
+        <div class="time-row">
+          <div>
+            <label for="startTime">Start</label>
+            <!-- type="time" gives you the phone's native time picker for free -->
+            <input type="time" id="startTime" />
+          </div>
+          <div>
+            <label for="endTime">End</label>
+            <input type="time" id="endTime" />
+          </div>
+        </div>
+
+        <label for="activity">Activity</label>
+        <textarea id="activity" rows="2" placeholder="What did you work on?"></textarea>
+
+        <button class="btn" id="addBtn">Add Block</button>
+        <button class="btn btn-danger" id="clearBtn">Clear Today's Blocks</button>
+      </div>
+
+      <!-- Saved blocks get injected into this empty div by JavaScript -->
+      <div id="blockList"></div>
+    </div>
+
+    <!-- ===== PANEL 2: JS TUTORIAL (hidden on load) ===== -->
+    <div id="panel-tutorial" class="hidden">
+      <div class="card">
+        <!-- Title + counter get filled in by JavaScript from the lessons array -->
+        <div class="lesson-head">
+          <h2 class="lesson-title" id="lessonTitle"></h2>
+          <span class="lesson-count" id="lessonCount"></span>
+        </div>
+
+        <!-- The lesson explanation text gets injected here -->
+        <div class="lesson-body" id="lessonBody"></div>
+
+        <label for="codeEditor">Try it yourself</label>
+        <!-- spellcheck="off" stops the phone from underlining code in red.
+             autocapitalize/autocorrect off: phones love to "fix" code and break it. -->
+        <textarea id="codeEditor" class="code-editor"
+          spellcheck="false" autocapitalize="off" autocorrect="off"></textarea>
+
+        <button class="btn" id="runBtn">&#9654; Run Code</button>
+
+        <!-- console.log output and errors appear in this panel -->
+        <div class="output-panel" id="outputPanel">
+          <span class="output-hint">Output will appear here...</span>
+        </div>
+
+        <!-- Previous / Next lesson navigation -->
+        <div class="lesson-nav">
+          <button class="btn" id="prevBtn">&larr; Previous</button>
+          <button class="btn" id="nextBtn">Next &rarr;</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ==============================================================
+       SECTION 1: HELPERS
+       ============================================================== */
+
+    // Builds a key like "blocks_2026-06-12". Because the date is in
+    // the key, each day automatically gets its own storage slot.
+    function todayKey() {
+      const d = new Date();                       // current date+time object
+      const yyyy = d.getFullYear();               // e.g. 2026
+      // getMonth() counts from 0 (Jan=0), so we add 1.
+      // padStart(2,'0') turns "6" into "06" so keys sort cleanly.
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `blocks_${yyyy}-${mm}-${dd}`;
+    }
+
+    // localStorage only stores STRINGS, so we store our array as JSON
+    // text and convert it back to a real array when loading.
+    function loadBlocks() {
+      const raw = localStorage.getItem(todayKey()); // returns string or null
+      // If nothing saved yet (null), return an empty array instead of crashing
+      return raw ? JSON.parse(raw) : [];
+    }
+
+    function saveBlocks(blocks) {
+      // JSON.stringify converts the array into text localStorage can hold
+      localStorage.setItem(todayKey(), JSON.stringify(blocks));
+    }
+
+    // Converts "14:30" into "2:30 PM" for friendlier display
+    function formatTime(t) {
+      if (!t) return '?';                         // guard against empty values
+      const [h, m] = t.split(':').map(Number);    // "14:30" -> [14, 30]
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const hour12 = h % 12 === 0 ? 12 : h % 12;  // 0 and 12 both display as 12
+      return `${hour12}:${String(m).padStart(2, '0')} ${ampm}`;
+    }
+
+    /* ==============================================================
+       SECTION 2: RENDERING — redraw the list from saved data
+       ============================================================== */
+
+    function render() {
+      const blocks = loadBlocks();                     // always read fresh data
+      const list = document.getElementById('blockList');
+      list.innerHTML = '';                             // wipe old list before redrawing
+
+      if (blocks.length === 0) {
+        // Show a friendly message instead of a blank void
+        list.innerHTML = '<p class="empty-msg">No blocks yet today. Add your first one above.</p>';
+        return;                                        // nothing else to draw — exit early
+      }
+
+      // forEach runs this function once per block; "i" is its position
+      blocks.forEach((block, i) => {
+        const item = document.createElement('div');    // build a new div in memory
+        item.className = 'block-item';
+        // Template literal (backticks) lets us mix HTML and variables
+        item.innerHTML = `
+          <div>
+            <div class="block-time">${formatTime(block.start)} &rarr; ${formatTime(block.end)}</div>
+            <div class="block-desc">${block.desc}</div>
+          </div>
+          <button class="del-btn" data-index="${i}">&times;</button>
+        `;
+        list.appendChild(item);                        // attach it to the page
+      });
+    }
+
+    /* ==============================================================
+       SECTION 3: EVENT LISTENERS — connect buttons to actions
+       ============================================================== */
+
+    // ADD BLOCK
+    document.getElementById('addBtn').addEventListener('click', () => {
+      const start = document.getElementById('startTime').value;
+      const end = document.getElementById('endTime').value;
+      // .trim() removes accidental spaces from the start/end of the text
+      const desc = document.getElementById('activity').value.trim();
+
+      // Validation: refuse to save incomplete blocks
+      if (!start || !end || !desc) {
+        alert('Please fill in start time, end time, and activity.');
+        return;
+      }
+
+      const blocks = loadBlocks();                  // 1. get current data
+      blocks.push({ start, end, desc });            // 2. add the new block
+      saveBlocks(blocks);                           // 3. save it back
+      render();                                     // 4. redraw the list
+
+      // Clear the description so the form is ready for the next entry.
+      // We keep the times — often your next block starts where this one ended.
+      document.getElementById('activity').value = '';
+    });
+
+    // DELETE ONE BLOCK — we listen on the whole list (event delegation)
+    // because the × buttons don't exist yet when the page first loads.
+    document.getElementById('blockList').addEventListener('click', (e) => {
+      // Only act if the thing tapped was actually a delete button
+      if (!e.target.classList.contains('del-btn')) return;
+      const i = Number(e.target.dataset.index);     // which block? read its data-index
+      const blocks = loadBlocks();
+      blocks.splice(i, 1);                          // remove 1 item at position i
+      saveBlocks(blocks);
+      render();
+    });
+
+    // CLEAR TODAY — with a confirm() popup so one mistap can't wipe your day
+    document.getElementById('clearBtn').addEventListener('click', () => {
+      if (confirm("Delete ALL of today's blocks?")) {
+        localStorage.removeItem(todayKey());        // delete today's drawer entirely
+        render();
+      }
+    });
+
+    // TAB SWITCHING — one listener handles both tab buttons
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        // Step 1: remove "active" from every tab button
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        // Step 2: mark the tapped button as active
+        btn.classList.add('active');
+        // Step 3: hide both panels, then reveal the one matching data-tab
+        document.getElementById('panel-tracker').classList.add('hidden');
+        document.getElementById('panel-tutorial').classList.add('hidden');
+        document.getElementById('panel-' + btn.dataset.tab).classList.remove('hidden');
+      });
+    });
+
+    /* ==============================================================
+       SECTION 5: JS TUTORIAL SYSTEM
+       ============================================================== */
+
+    // ALL lesson content lives in this one array. Each lesson is an
+    // object with three properties. To add Lesson 4 someday, you just
+    // add one more { } block here — no other code changes needed.
+    const lessons = [
+      {
+        title: 'Lesson 1: Variables',
+        body: `
+          <p>A <code>variable</code> is a labeled box that stores a value. You create one with <code>let</code> (the value can change later) or <code>const</code> (the value is locked forever).</p>
+          <p>Variables can hold <code>strings</code> (text in quotes, like <code>'Alex'</code>) or <code>numbers</code> (no quotes, like <code>42</code>).</p>
+          <p><code>console.log()</code> prints a value to the output — it's how your code "talks" to you. Run the example, then try changing the name or the math.</p>
+        `,
+        code: `let name = 'Alex';
+const year = 2026;
+let nextYear = year + 1;
+
+console.log(name);
+console.log('Next year is ' + nextYear);`
+      },
+      {
+        title: 'Lesson 2: Functions',
+        body: `
+          <p>A <code>function</code> is a reusable recipe: you define the steps once, then run them whenever you want by "calling" the function with parentheses.</p>
+          <p>Functions can take <code>parameters</code> (ingredients you pass in) and <code>return</code> a result back out.</p>
+          <p>Run the example, then try adding a third call with your own name — or write a new function that multiplies two numbers.</p>
+        `,
+        code: `function greet(person) {
+  return 'Hello, ' + person + '!';
+}
+
+console.log(greet('Rob'));
+console.log(greet('Alex'));
+
+function add(a, b) {
+  return a + b;
+}
+
+console.log('5 + 3 = ' + add(5, 3));`
+      },
+      {
+        title: 'Lesson 3: If / Else',
+        body: `
+          <p><code>if/else</code> lets your code make decisions. The code inside <code>if</code> only runs when its condition is <code>true</code>; otherwise the <code>else</code> branch runs.</p>
+          <p>Conditions use comparisons: <code>&gt;</code> (greater), <code>&lt;</code> (less), <code>===</code> (exactly equal), <code>!==</code> (not equal).</p>
+          <p>Run it, then change <code>hour</code> to different numbers (try 7, 14, 22) and watch the message change.</p>
+        `,
+        code: `let hour = 14;
+
+if (hour < 12) {
+  console.log('Good morning!');
+} else if (hour < 18) {
+  console.log('Good afternoon!');
+} else {
+  console.log('Good evening!');
+}
+
+let energy = 80;
+if (energy > 50) {
+  console.log('Energy is high: ' + energy);
+} else {
+  console.log('Time to recharge.');
+}`
+      }
+    ];
+
+    // Tracks which lesson is on screen. 0 = first lesson (arrays count from 0).
+    let currentLesson = 0;
+
+    // Draws the current lesson into the page and resets the editor + output
+    function renderLesson() {
+      const lesson = lessons[currentLesson];           // grab the active lesson object
+      document.getElementById('lessonTitle').textContent = lesson.title;
+      document.getElementById('lessonCount').textContent =
+        (currentLesson + 1) + ' / ' + lessons.length;  // humans count from 1, so +1
+      document.getElementById('lessonBody').innerHTML = lesson.body;
+      document.getElementById('codeEditor').value = lesson.code; // pre-fill the editor
+      document.getElementById('outputPanel').innerHTML =
+        '<span class="output-hint">Output will appear here...</span>';
+
+      // Disable Previous on the first lesson and Next on the last —
+      // the CSS :disabled rule fades them out automatically.
+      document.getElementById('prevBtn').disabled = (currentLesson === 0);
+      document.getElementById('nextBtn').disabled = (currentLesson === lessons.length - 1);
+    }
+
+    // RUN CODE — executes whatever is in the editor and captures the output
+    document.getElementById('runBtn').addEventListener('click', () => {
+      const code = document.getElementById('codeEditor').value;
+      const panel = document.getElementById('outputPanel');
+      const logs = [];                                 // collects every console.log line
+
+      // Save the REAL console.log so we can restore it afterward
+      const originalLog = console.log;
+
+      // Temporarily replace console.log with our own version that
+      // stores each message. "...args" gathers all arguments into an array.
+      console.log = (...args) => {
+        logs.push(args.map(a =>
+          // Objects/arrays get JSON-formatted so they're readable;
+          // strings and numbers pass through with String()
+          typeof a === 'object' ? JSON.stringify(a) : String(a)
+        ).join(' '));
+        originalLog(...args);                          // still log to the real console too
+      };
+
+      try {
+        // new Function turns the editor text into a runnable function.
+        // If the code has a typo, this throws an error — caught below.
+        const userCode = new Function(code);
+        userCode();                                    // run it!
+
+        // Show the captured logs, or a hint if the code logged nothing
+        panel.textContent = logs.length
+          ? logs.join('\n')
+          : '(Code ran with no output — add a console.log!)';
+      } catch (err) {
+        // err.message is the human-readable error, e.g. "name is not defined"
+        panel.innerHTML = '<span class="output-error">Error: ' + err.message + '</span>';
+      } finally {
+        // "finally" ALWAYS runs, success or error — perfect for cleanup.
+        console.log = originalLog;                     // give console.log back
+      }
+    });
+
+    // PREVIOUS / NEXT — move the index, then redraw
+    document.getElementById('prevBtn').addEventListener('click', () => {
+      if (currentLesson > 0) {                         // safety check: don't go below 0
+        currentLesson--;                               // -- means "subtract 1"
+        renderLesson();
+      }
+    });
+
+    document.getElementById('nextBtn').addEventListener('click', () => {
+      if (currentLesson < lessons.length - 1) {        // don't go past the last lesson
+        currentLesson++;                               // ++ means "add 1"
+        renderLesson();
+      }
+    });
+
+    /* ==============================================================
+       SECTION 6: STARTUP — runs once when the page opens
+       ============================================================== */
+
+    // Write today's date under the title, e.g. "Friday, June 12, 2026"
+    document.getElementById('dateLabel').textContent =
+      new Date().toLocaleDateString('en-US', {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+      });
+
+    render();       // draw whatever was already saved for today
+    renderLesson(); // load Lesson 1 into the tutorial tab
+  </script>
+</body>
+</html>
